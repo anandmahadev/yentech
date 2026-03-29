@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronRight, ChevronLeft, User, Brain, MessageSquare, CheckCircle, Zap, Code, Cpu, Terminal } from "lucide-react"
+import { ChevronRight, ChevronLeft, User, Brain, MessageSquare, CheckCircle, Zap, Code, Terminal, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 
 const domains = [
   { id: "ai-ml", name: "AI / ML", icon: Brain, color: "#7c3aed" },
@@ -75,9 +76,6 @@ interface FormData {
   experience: string
 }
 
-// Store submitted campus IDs to prevent duplicates (in production, this would be in a database)
-const submittedCampusIds = new Set<string>()
-
 export function RecruitmentForm() {
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState<FormData>({
@@ -92,16 +90,30 @@ export function RecruitmentForm() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
   const [applicationId, setApplicationId] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCheckingCampusId, setIsCheckingCampusId] = useState(false)
   
 
-  const validateStep1 = () => {
+  const validateStep1 = async (): Promise<boolean> => {
     const newErrors: Record<string, string> = {}
     if (!formData.fullName.trim()) newErrors.fullName = "Name is required"
     if (!/^\d{10}$/.test(formData.mobile)) newErrors.mobile = "Enter valid 10-digit mobile number"
     if (!formData.campusId.trim()) {
       newErrors.campusId = "Campus ID is required"
-    } else if (submittedCampusIds.has(formData.campusId.trim().toUpperCase())) {
-      newErrors.campusId = "This Campus ID has already submitted an application"
+    } else {
+      // Check if campus ID already exists in database
+      setIsCheckingCampusId(true)
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("registrations")
+        .select("campus_id")
+        .eq("campus_id", formData.campusId.trim().toUpperCase())
+        .single()
+      setIsCheckingCampusId(false)
+      
+      if (data) {
+        newErrors.campusId = "This Campus ID has already submitted an application"
+      }
     }
     if (!formData.domain) newErrors.domain = "Select a domain"
     setErrors(newErrors)
@@ -127,25 +139,49 @@ export function RecruitmentForm() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleNext = () => {
-    if (step === 1 && validateStep1()) setStep(2)
-    else if (step === 2 && validateStep2()) setStep(3)
-    else if (step === 3 && validateStep3()) handleSubmit()
+  const handleNext = async () => {
+    if (step === 1) {
+      const isValid = await validateStep1()
+      if (isValid) setStep(2)
+    } else if (step === 2 && validateStep2()) {
+      setStep(3)
+    } else if (step === 3 && validateStep3()) {
+      handleSubmit()
+    }
   }
 
-  const handleSubmit = () => {
-    // Check for duplicate campus ID one more time before final submission
+  const handleSubmit = async () => {
+    setIsSubmitting(true)
+    const supabase = createClient()
     const normalizedCampusId = formData.campusId.trim().toUpperCase()
-    if (submittedCampusIds.has(normalizedCampusId)) {
-      setStep(1)
-      setErrors({ campusId: "This Campus ID has already submitted an application" })
+    const id = `YT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    
+    // Insert registration into database
+    const { error } = await supabase.from("registrations").insert({
+      application_id: id,
+      campus_id: normalizedCampusId,
+      full_name: formData.fullName.trim(),
+      mobile: formData.mobile,
+      domain: formData.domain,
+      answers: formData.answers,
+      why_choose_you: formData.whyChooseYou.trim(),
+      experience: formData.experience.trim() || null
+    })
+    
+    setIsSubmitting(false)
+    
+    if (error) {
+      // Check if it's a duplicate campus_id error
+      if (error.code === "23505") {
+        setStep(1)
+        setErrors({ campusId: "This Campus ID has already submitted an application" })
+        return
+      }
+      // Handle other errors
+      setErrors({ submit: "Something went wrong. Please try again." })
       return
     }
     
-    // Store the campus ID to prevent future duplicates
-    submittedCampusIds.add(normalizedCampusId)
-    
-    const id = `YT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
     setApplicationId(id)
     setSubmitted(true)
   }
@@ -435,10 +471,20 @@ export function RecruitmentForm() {
         <button
           type="button"
           onClick={handleNext}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#00d4ff] text-[#050508] font-sans font-semibold text-sm hover:bg-[#00d4ff]/90 transition-colors"
+          disabled={isSubmitting || isCheckingCampusId}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#00d4ff] text-[#050508] font-sans font-semibold text-sm hover:bg-[#00d4ff]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {step === 3 ? "Submit Application" : "Continue"}
-          <ChevronRight className="w-4 h-4" />
+          {isSubmitting || isCheckingCampusId ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {isCheckingCampusId ? "Checking..." : "Submitting..."}
+            </>
+          ) : (
+            <>
+              {step === 3 ? "Submit Application" : "Continue"}
+              <ChevronRight className="w-4 h-4" />
+            </>
+          )}
         </button>
       </div>
     </div>
