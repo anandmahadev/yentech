@@ -344,9 +344,15 @@ export function RecruitmentForm() {
                       ...formData,
                       answers: { ...formData.answers, [q.id]: e.target.value }
                     })}
+                    onPaste={(e) => {
+                      e.preventDefault()
+                      alert("Pasting is disabled. Please type your answer.")
+                    }}
+                    onDrop={(e) => e.preventDefault()}
                     rows={3}
                     className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00d4ff]/50 focus:border-[#00d4ff] text-foreground font-mono text-sm transition-all resize-none"
                     placeholder={q.placeholder}
+                    autoComplete="off"
                   />
                   <div className="flex justify-between mt-2">
                     {errors[`q${q.id}`] && (
