@@ -321,7 +321,7 @@ function CandidateCard({ reg, index }: { reg: Registration; index: number }) {
                   ))}
               </div>
 
-              {/* Domain-Specific Answers */}
+              { /* Domain-Specific Answers */}
               {answersArray.filter(([key]) => Number(key) >= 100).length > 0 && (
                 <div className="space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: domain.color }}>
