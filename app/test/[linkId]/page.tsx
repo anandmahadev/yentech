@@ -372,7 +372,7 @@ export default function AssessmentPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
             {[
-              { icon: Clock, title: "20 Minutes", desc: "Strict time limit. Auto-submits at 00:00." },
+              { icon: Clock, title: `${TEST_DURATION_SECONDS / 60} Minutes`, desc: "Strict time limit. Auto-submits at 00:00." },
               { icon: Shield, title: "Fullscreen", desc: "Mandatory mode. 2 strikes policy active." },
               { icon: Brain, title: "Focus", desc: "Stay within the test window at all times." },
               { icon: Lock, title: "Secured", desc: "Tab switching & Copy/Paste is DISABLED." },

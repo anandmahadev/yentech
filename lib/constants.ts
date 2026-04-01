@@ -51,4 +51,4 @@ export const DOMAIN_SPECIFIC_QUESTIONS: Record<string, string[]> = {
   ]
 }
 
-export const TEST_DURATION_SECONDS = 20 * 60; // 20 minutes
+export const TEST_DURATION_SECONDS = 30 * 60; // 30 minutes
