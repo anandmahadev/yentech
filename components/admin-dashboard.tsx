@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils"
 import { adminLoginAction, adminLogoutAction, getAdminSessionAction, getRegistrationsAction } from "@/app/actions/auth-actions"
 import { generateTestLinkAction, getTestSessionsAction, deleteTestSessionAction, deleteRegistrationAction } from "@/app/actions/admin-actions"
 import { toast } from "sonner"
-import { SITUATIONAL_QUESTIONS, DOMAIN_SPECIFIC_QUESTIONS } from "@/lib/constants"
+import { SITUATIONAL_QUESTIONS, DOMAIN_SPECIFIC_QUESTIONS, DOMAIN_CONFIG } from "@/lib/constants"
 import { useMemo } from "react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -67,15 +67,6 @@ interface TestSession {
     status: string
     answers: Record<string, string>
   }
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const DOMAIN_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  "ai-ml": { label: "AI / ML", icon: Brain, color: "#7c3aed" },
-  "web-dev": { label: "Web Dev", icon: Code, color: "#0ea5e9" },
-  cybersecurity: { label: "Cybersecurity", icon: Terminal, color: "#10b981" },
-  graphics: { label: "Graphics / Media", icon: Zap, color: "#f59e0b" },
 }
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
