@@ -80,7 +80,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="text-center mt-12 pb-8 space-y-3">
           <p className="text-muted-foreground font-mono text-xs">
-            &copy; {new Date().getFullYear()} YENTECH. Built with passion by students, for students.
+            &copy; {new Date().getFullYear()} YENTECH. Built with passion by the WebDev Team.
           </p>
           <Link
             href="/admin"
