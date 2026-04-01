@@ -786,11 +786,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <select
               value={domainFilter}
               onChange={(e) => setDomainFilter(e.target.value)}
-              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none"
+              className="px-4 py-2 rounded-lg bg-[#0f0f18] border border-white/10 text-sm outline-none focus:border-[#00d4ff]/50 text-white"
             >
-              <option value="all">All Domains</option>
+              <option value="all" className="bg-[#0f0f18] text-white">All Domains</option>
               {Object.entries(DOMAIN_CONFIG).map(([key, cfg]) => (
-                <option key={key} value={key}>{cfg.label}</option>
+                <option key={key} value={key} className="bg-[#0f0f18] text-white">{cfg.label}</option>
               ))}
             </select>
           </div>
