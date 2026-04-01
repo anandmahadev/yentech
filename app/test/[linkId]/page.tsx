@@ -32,7 +32,7 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type TestState = "verifying" | "welcome" | "running" | "submitting" | "completed" | "error"
+type TestState = "verifying" | "welcome" | "instructions" | "running" | "submitting" | "completed" | "error"
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -328,13 +328,12 @@ export default function AssessmentPage() {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-widest border-b border-white/5 pb-2">Instructions</h3>
+              <h3 className="text-xs font-bold text-white uppercase tracking-widest border-b border-white/5 pb-2">Overview</h3>
               <ul className="space-y-3">
                 {[
-                  "Total Duration: 20 Minutes (Strictly timed).",
-                  "Auto-Submission: The test will auto-submit when the timer hits zero.",
-                  "Anti-Cheating: Tab switching or copying/pasting is monitored.",
-                  "Stability: Do not refresh the page after starting.",
+                  "Domain: " + domain.label,
+                  "Candidate Verified: " + sessionData.registrations.full_name,
+                  "Ready for final briefing protocols.",
                 ].map((item, i) => (
                   <li key={i} className="flex gap-3 text-xs text-zinc-500">
                     <span className="text-[#00d4ff] font-mono">0{i+1}</span>
@@ -344,8 +343,74 @@ export default function AssessmentPage() {
               </ul>
             </div>
 
-            <button onClick={handleStartTest} disabled={isLoadingStart} className="w-full py-4 rounded-xl bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-[#050508] font-bold shadow-xl shadow-[#00d4ff]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-              {isLoadingStart ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Start Assessment <ChevronRight className="w-5 h-5" /></>}
+            <button onClick={() => setState("instructions")} className="w-full py-4 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+              PROCEED TO INSTRUCTIONS <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
+  if (state === "instructions") {
+    return (
+      <div className="min-h-screen bg-[#050508] flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }} 
+          animate={{ opacity: 1, scale: 1 }} 
+          className="max-w-2xl w-full p-8 rounded-3xl border border-white/10 bg-white/5 shadow-2xl relative overflow-hidden"
+        >
+          {/* Subtle Background Glow */}
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#00d4ff]/10 blur-[100px]" />
+          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-[#7c3aed]/10 blur-[100px]" />
+
+          <header className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-white tracking-tight uppercase">Assessment Briefing</h2>
+            <p className="text-[10px] text-zinc-500 font-mono mt-2 uppercase tracking-[0.3em] opacity-50">Security Protocol Activated</p>
+          </header>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+            {[
+              { icon: Clock, title: "20 Minutes", desc: "Strict time limit. Auto-submits at 00:00." },
+              { icon: Shield, title: "Fullscreen", desc: "Mandatory mode. 2 strikes policy active." },
+              { icon: Brain, title: "Focus", desc: "Stay within the test window at all times." },
+              { icon: Lock, title: "Secured", desc: "Tab switching & Copy/Paste is DISABLED." },
+            ].map((item, i) => (
+              <div key={i} className="p-5 rounded-2xl bg-white/5 border border-white/5 flex gap-4 items-start hover:bg-white/[0.07] transition-colors">
+                <div className="w-10 h-10 rounded-xl bg-[#00d4ff]/10 flex items-center justify-center border border-[#00d4ff]/20 shrink-0">
+                  <item.icon className="w-5 h-5 text-[#00d4ff]" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">{item.title}</h4>
+                  <p className="text-[10px] text-zinc-500 leading-relaxed mt-1">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-6 rounded-2xl bg-red-500/5 border border-red-500/10 mb-10">
+             <div className="flex items-center gap-3 mb-2 text-red-500 uppercase tracking-widest font-black text-[10px]">
+                <AlertTriangle className="w-4 h-4" />
+                Critical Enforcement
+             </div>
+             <p className="text-[11px] text-zinc-400 leading-relaxed">
+                By starting, you agree to enter <span className="text-white font-bold">FULLSCREEN MODE</span>. Navigating away, minimizing the browser, or attempting to use developer tools will trigger an immediate security strike.
+             </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button 
+              onClick={() => setState("welcome")} 
+              className="flex-1 py-4 rounded-xl border border-white/10 text-zinc-500 font-bold hover:text-white transition-all text-xs"
+            >
+              BACK
+            </button>
+            <button 
+              onClick={handleStartTest} 
+              disabled={isLoadingStart} 
+              className="flex-[2] py-4 rounded-xl bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-[#050508] font-black shadow-xl shadow-[#00d4ff]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+            >
+              {isLoadingStart ? <Loader2 className="w-5 h-5 animate-spin" /> : <>START ASSESSMENT <ChevronRight className="w-5 h-5" /></>}
             </button>
           </div>
         </motion.div>
