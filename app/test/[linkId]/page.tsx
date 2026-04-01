@@ -59,6 +59,10 @@ export default function AssessmentPage() {
   const [isWarningVisible, setIsWarningVisible] = useState(false)
   const [warningType, setWarningType] = useState<"blur" | "copy-paste">("blur")
   
+  // Fullscreen enforcement
+  const [showFullScreenOverlay, setShowFullScreenOverlay] = useState(false)
+  const fullscreenViolationsRef = useRef(0)
+  
   // Refs for timer and synchronization
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const autoSubmitTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -216,9 +220,15 @@ export default function AssessmentPage() {
 
     const handleFullScreenChange = () => {
       if (!document.fullscreenElement && state === "running") {
-        toast.warning("Warning: Please stay in fullscreen mode to avoid assessment violations.")
-        // Optionally count as violation:
-        // violationsRef.current += 1
+        fullscreenViolationsRef.current += 1
+        
+        if (fullscreenViolationsRef.current === 1) {
+          setShowFullScreenOverlay(true)
+          toast.warning("First Warning: Please stay in fullscreen mode. One more exit will auto-submit the test.")
+        } else if (fullscreenViolationsRef.current >= 2) {
+          toast.error("Second Fullscreen Violation: Submitting test automatically.")
+          handleSubmit()
+        }
       }
     }
 
@@ -464,6 +474,47 @@ export default function AssessmentPage() {
                 <button onClick={() => setIsWarningVisible(false)} className="p-1 hover:bg-white/10 rounded-lg">
                   <XCircle className="w-4 h-4 text-zinc-500" />
                 </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Fullscreen Required Overlay */}
+        <AnimatePresence>
+          {showFullScreenOverlay && !document.fullscreenElement && state === "running" && (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] bg-[#050508]/95 backdrop-blur-md flex items-center justify-center p-6 text-center"
+            >
+              <div className="max-w-md space-y-8">
+                <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mx-auto border border-red-500/20">
+                  <AlertTriangle className="w-10 h-10 text-red-500" />
+                </div>
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-bold text-white uppercase tracking-tight">Full Screen Required</h2>
+                  <p className="text-zinc-500 text-sm leading-relaxed">
+                    Exiting fullscreen mode is a security violation. You have <span className="text-red-500 font-bold">one strike remaining</span>. Re-entering fullscreen will allow you to continue.
+                  </p>
+                </div>
+                <button 
+                  onClick={async () => {
+                    try {
+                      if (document.documentElement.requestFullscreen) {
+                        await document.documentElement.requestFullscreen()
+                        setShowFullScreenOverlay(false)
+                      }
+                    } catch (err) {
+                      toast.error("Manual action required: Please use your browser to go fullscreen.")
+                    }
+                  }}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-[#050508] font-bold shadow-xl shadow-[#00d4ff]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <Eye className="w-5 h-5" />
+                  RETURN TO FULLSCREEN
+                </button>
+                <p className="text-[10px] text-zinc-700 font-mono italic">Strike 1 of 2 logged for session: {linkId}</p>
               </div>
             </motion.div>
           )}
