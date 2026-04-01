@@ -132,3 +132,46 @@ export async function deleteTestSessionAction(sessionId: string, registrationId?
   revalidatePath("/admin")
   return { success: true }
 }
+
+/**
+ * Deletes a candidate registration and any associated test sessions
+ */
+export async function deleteRegistrationAction(registrationId: string) {
+  const session = await getSession()
+  if (!session || !session.admin) {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  const supabase = await createClient()
+
+  console.log(`[DELETE] Attempting to delete registration: ${registrationId}`)
+
+  // 1. Delete associated test sessions first (to handle FK constraints)
+  const { data: sessions, error: sessionError } = await supabase
+    .from("test_sessions")
+    .delete()
+    .eq("registration_id", registrationId)
+    .select()
+
+  if (sessionError) {
+    console.error(`[DELETE] Error deleting test sessions:`, sessionError)
+    return { success: false, error: `Database Error (Sessions): ${sessionError.message}` }
+  }
+
+  console.log(`[DELETE] Successfully deleted ${sessions?.length || 0} associated test sessions.`)
+
+  // 2. Delete the registration
+  const { error: regError } = await supabase
+    .from("registrations")
+    .delete()
+    .eq("id", registrationId)
+
+  if (regError) {
+    console.error(`[DELETE] Error deleting registration:`, regError)
+    return { success: false, error: `Database Error (Registration): ${regError.message}` }
+  }
+
+  console.log(`[DELETE] Successfully deleted registration: ${registrationId}`)
+  revalidatePath("/admin")
+  return { success: true }
+}

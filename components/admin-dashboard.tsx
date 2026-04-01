@@ -29,7 +29,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { adminLoginAction, adminLogoutAction, getAdminSessionAction, getRegistrationsAction } from "@/app/actions/auth-actions"
-import { generateTestLinkAction, getTestSessionsAction, deleteTestSessionAction } from "@/app/actions/admin-actions"
+import { generateTestLinkAction, getTestSessionsAction, deleteTestSessionAction, deleteRegistrationAction } from "@/app/actions/admin-actions"
 import { toast } from "sonner"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -170,9 +170,18 @@ function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
 
 // ─── Registration Row ────────────────────────────────────────────────────────
 
-function RegistrationCard({ reg, onGenerateLink }: { reg: Registration; onGenerateLink: (id: string, domain: string) => void }) {
+function RegistrationCard({ 
+  reg, 
+  onGenerateLink, 
+  onDelete 
+}: { 
+  reg: Registration; 
+  onGenerateLink: (id: string, domain: string) => void;
+  onDelete: (id: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const domain = DOMAIN_CONFIG[reg.domain] ?? { label: reg.domain, icon: Code, color: "#00d4ff" }
   const DomainIcon = domain.icon
 
@@ -180,6 +189,13 @@ function RegistrationCard({ reg, onGenerateLink }: { reg: Registration; onGenera
     setIsGenerating(true)
     await onGenerateLink(reg.id, reg.domain)
     setIsGenerating(false)
+  }
+
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${reg.full_name}'s application? This action cannot be undone.`)) return
+    setIsDeleting(true)
+    await onDelete(reg.id)
+    setIsDeleting(false)
   }
 
   return (
@@ -246,8 +262,17 @@ function RegistrationCard({ reg, onGenerateLink }: { reg: Registration; onGenera
             </div>
           )}
 
-          <button
-            onClick={() => setExpanded(!expanded)}
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 transition-all disabled:opacity-50"
+              title="Delete Application"
+            >
+              {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            </button>
+
+            <button
+              onClick={() => setExpanded(!expanded)}
             className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-500"
           >
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -500,6 +525,16 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     }
   }
 
+  const handleDeleteRegistration = async (regId: string) => {
+    const res = await deleteRegistrationAction(regId)
+    if (res.success) {
+      toast.success("Application deleted successfully")
+      fetchData()
+    } else {
+      toast.error(res.error || "Delete failed")
+    }
+  }
+
   const filteredRegistrations = registrations.filter((r) => {
     const matchesSearch =
       r.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -594,7 +629,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           ) : tab === "registrations" ? (
             filteredRegistrations.length > 0 ? (
               filteredRegistrations.map(reg => (
-                <RegistrationCard key={reg.id} reg={reg} onGenerateLink={handleGenerateLink} />
+                <RegistrationCard 
+                  key={reg.id} 
+                  reg={reg} 
+                  onGenerateLink={handleGenerateLink} 
+                  onDelete={handleDeleteRegistration} 
+                />
               ))
             ) : (
               <p className="text-center py-20 text-zinc-600 italic">No registrations found matching criteria.</p>
