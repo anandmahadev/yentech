@@ -274,10 +274,12 @@ function RegistrationCard({ reg, onGenerateLink }: { reg: Registration; onGenera
                 </div>
               </div>
 
-              {/* Display Answers if completed */}
-              {reg.status === 'completed' && reg.answers && Object.keys(reg.answers).length > 0 && (
+              {/* Display Answers if available */}
+              {reg.answers && Object.keys(reg.answers).length > 0 && (
                 <div className="space-y-3 pt-2 border-t border-white/5">
-                  <h4 className="text-[10px] font-bold text-[#00d4ff] uppercase tracking-widest">Assessment Responses</h4>
+                  <h4 className="text-[10px] font-bold text-[#00d4ff] uppercase tracking-widest">
+                    Assessment Responses {reg.status?.toLowerCase() !== 'completed' && "(Draft/In-Progress)"}
+                  </h4>
                   <div className="space-y-3">
                     {Object.entries(reg.answers).map(([qId, answer]) => (
                       <div key={qId} className="p-3 rounded-lg bg-white/5 border border-white/5">

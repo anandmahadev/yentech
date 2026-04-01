@@ -108,6 +108,14 @@ export default function AssessmentPage() {
     const res = await startTestSessionAction(linkId as string)
     setIsLoadingStart(false)
     if (res.success) {
+      // Enable fullscreen
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen()
+        }
+      } catch (err) {
+        console.error("Fullscreen request failed:", err)
+      }
       setState("running")
     } else {
       toast("Failed to start session. Please refresh.")
@@ -185,11 +193,42 @@ export default function AssessmentPage() {
       return false
     }
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Disable F12
+      if (e.key === "F12") {
+        e.preventDefault()
+        toast.error("Developer tools are disabled.")
+        return false
+      }
+      // Disable Ctrl+Shift+I/J/C
+      if (e.ctrlKey && e.shiftKey && (e.key === "I" || e.key === "J" || e.key === "C")) {
+        e.preventDefault()
+        toast.error("Inspection tools are disabled.")
+        return false
+      }
+      // Disable Ctrl+U (View Source) and Ctrl+S (Save)
+      if (e.ctrlKey && (e.key === "u" || e.key === "U" || e.key === "s" || e.key === "S")) {
+        e.preventDefault()
+        toast.error("This action is restricted.")
+        return false
+      }
+    }
+
+    const handleFullScreenChange = () => {
+      if (!document.fullscreenElement && state === "running") {
+        toast.warning("Warning: Please stay in fullscreen mode to avoid assessment violations.")
+        // Optionally count as violation:
+        // violationsRef.current += 1
+      }
+    }
+
     document.addEventListener("visibilitychange", handleVisibilityChange)
     document.addEventListener("copy", handleCopyPaste)
     document.addEventListener("paste", handleCopyPaste)
     document.addEventListener("cut", handleCopyPaste)
     document.addEventListener("contextmenu", handleContextMenu)
+    document.addEventListener("keydown", handleKeyDown)
+    document.addEventListener("fullscreenchange", handleFullScreenChange)
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange)
@@ -197,6 +236,8 @@ export default function AssessmentPage() {
       document.removeEventListener("paste", handleCopyPaste)
       document.removeEventListener("cut", handleCopyPaste)
       document.removeEventListener("contextmenu", handleContextMenu)
+      document.removeEventListener("keydown", handleKeyDown)
+      document.removeEventListener("fullscreenchange", handleFullScreenChange)
     }
   }, [state, handleSubmit])
 

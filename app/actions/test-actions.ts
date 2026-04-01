@@ -85,12 +85,15 @@ export async function startTestSessionAction(linkId: string) {
   // 2. Update registration status
   const { error: regError } = await supabase
     .from("registrations")
-    .update({ status: 'started' })
+    .update({ status: "started" })
     .eq("id", session.registration_id)
 
   if (regError) {
-    return { success: false, error: `Failed to set test status to 'started': ${regError.message}. Code: ${regError.code}` }
+    console.error(`Failed to start session for link ${linkId}:`, regError)
+    return { success: false, error: `Failed to set test status to 'started': ${regError.message}` }
   }
+
+  console.log(`Test session ${session.id} started at ${now}`)
 
   return { success: true, startTime: now }
 }
@@ -124,25 +127,31 @@ export async function submitTestAnswersAction(linkId: string, answers: Record<st
   }
 
   // 3. Update registrations table
+  console.log(`Submitting answers for registration ${session.registration_id}...`)
   const { error: regError } = await supabase
     .from("registrations")
     .update({ 
       answers: answers, 
-      status: 'completed' 
+      status: "completed" 
     })
     .eq("id", session.registration_id)
 
   if (regError) {
     console.error("Final submission registration error:", regError)
-    return { success: false, error: `Database error saving answers: ${regError.message}. Code: ${regError.code}` }
+    return { success: false, error: `Database error saving answers: ${regError.message}` }
   }
 
   // 4. Close session
-  await supabase
+  const { error: sessionError } = await supabase
     .from("test_sessions")
     .update({ completed_at: now.toISOString() })
     .eq("id", session.id)
 
+  if (sessionError) {
+    console.error("Final submission session closure error:", sessionError)
+  }
+
+  console.log(`Successfully submitted test for registration ${session.registration_id}`)
   revalidatePath("/admin")
   return { success: true }
 }
