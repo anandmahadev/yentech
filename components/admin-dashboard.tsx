@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils"
 import { adminLoginAction, adminLogoutAction, getAdminSessionAction, getRegistrationsAction } from "@/app/actions/auth-actions"
 import { generateTestLinkAction, getTestSessionsAction, deleteTestSessionAction, deleteRegistrationAction } from "@/app/actions/admin-actions"
 import { toast } from "sonner"
+import { SITUATIONAL_QUESTIONS, DOMAIN_SPECIFIC_QUESTIONS } from "@/lib/constants"
+import { useMemo } from "react"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -168,16 +170,145 @@ function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   )
 }
 
+// ─── Assessment Report Overlay ───────────────────────────────────────────
+
+function AssessmentReportOverlay({ 
+  candidateName, 
+  domain: domainKey, 
+  answers, 
+  onClose 
+}: { 
+  candidateName: string; 
+  domain: string; 
+  answers: Record<string, string>; 
+  onClose: () => void 
+}) {
+  const domain = DOMAIN_CONFIG[domainKey as keyof typeof DOMAIN_CONFIG] || { label: domainKey, color: "#00d4ff" }
+  
+  const questions = useMemo(() => {
+    const sQs = SITUATIONAL_QUESTIONS.map((q, i) => ({ id: i.toString(), text: q, category: "situational" }))
+    const dQs = (DOMAIN_SPECIFIC_QUESTIONS[domainKey] || []).map((q, i) => ({
+      id: (100 + i).toString(),
+      text: q,
+      category: "domain",
+    }))
+    return [...sQs, ...dQs]
+  }, [domainKey])
+
+  const stats = {
+    total: questions.length,
+    answered: Object.values(answers).filter(a => !!a).length,
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+    >
+      <div className="absolute inset-0 bg-[#050508]/90 backdrop-blur-md" onClick={onClose} />
+      
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+        animate={{ opacity: 1, scale: 1, y: 0 }} 
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="relative w-full max-w-4xl max-h-[85vh] bg-[#0a0a0f] border border-white/10 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+              <Brain className="w-6 h-6 text-[#00d4ff]" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white leading-none mb-1">{candidateName}</h2>
+              <p className="text-xs text-zinc-500 font-mono flex items-center gap-2">
+                <span style={{ color: domain.color }}>{domain.label}</span>
+                <span className="opacity-30">|</span>
+                <span>Assessment Report</span>
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            <div className="text-right hidden sm:block">
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Progress</p>
+              <p className="text-sm font-bold text-white">{stats.answered} / {stats.total} Answered</p>
+            </div>
+            <button 
+              onClick={onClose}
+              className="p-2 rounded-xl hover:bg-white/10 text-zinc-400 transition-all border border-transparent hover:border-white/10"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
+          {questions.map((q, idx) => {
+            const answer = answers[q.id]
+            const isAnswered = !!answer
+            
+            return (
+              <div key={idx} className="group relative">
+                {/* Category Badge */}
+                <div className="flex items-center gap-3 mb-3">
+                   <span className={cn(
+                     "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter border",
+                     q.category === 'situational' ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-purple-500/10 border-purple-500/20 text-purple-400"
+                   )}>
+                     {q.category}
+                   </span>
+                   <span className="text-[10px] text-zinc-700 font-mono">Q#{idx + 1}</span>
+                </div>
+                
+                <div className={cn(
+                  "p-5 rounded-2xl transition-all border",
+                  isAnswered ? "bg-white/[0.02] border-white/5 group-hover:border-white/10" : "bg-red-500/[0.02] border-red-500/10"
+                )}>
+                  <h4 className="text-base font-semibold text-white mb-4 leading-relaxed">
+                    {q.text}
+                  </h4>
+                  
+                  {isAnswered ? (
+                    <div className="p-4 rounded-xl bg-black/40 border border-white/5 text-zinc-300 text-sm leading-loose whitespace-pre-wrap font-sans italic">
+                      "{answer}"
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-red-500/50 italic text-sm py-2">
+                       <EyeOff className="w-4 h-4" />
+                       No response provided for this question.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 bg-white/[0.02] border-t border-white/5 flex justify-center">
+            <p className="text-[10px] text-zinc-600 font-mono">Session ID Encrypted & Time-Stamped</p>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Registration Row ────────────────────────────────────────────────────────
 
 function RegistrationCard({ 
   reg, 
   onGenerateLink, 
-  onDelete 
+  onDelete,
+  onViewReport
 }: { 
   reg: Registration; 
   onGenerateLink: (id: string, domain: string) => void;
   onDelete: (id: string) => void;
+  onViewReport: (candidateName: string, domain: string, answers: Record<string, string>) => void;
 }) {
   const [expanded, setExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -256,10 +387,20 @@ function RegistrationCard({
               Test in Progress
             </div>
           ) : (
-            <div className="flex items-center gap-1 text-xs text-green-500 italic">
-              <CheckCircle className="w-3 h-3" />
+            <div className="flex items-center gap-1.5 text-xs text-green-500 font-bold border border-green-500/20 bg-green-500/5 px-2 py-1 rounded-md">
+              <CheckCircle className="w-3.5 h-3.5" />
               Link Generated
             </div>
+          )}
+
+          {reg.status?.toLowerCase() === 'completed' && (
+            <button
+              onClick={() => onViewReport(reg.full_name, reg.domain, reg.answers)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-all"
+            >
+              <Brain className="w-3.5 h-3.5 text-[#00d4ff]" />
+              View Report
+            </button>
           )}
 
             <button
@@ -299,19 +440,32 @@ function RegistrationCard({
                 </div>
               </div>
 
-              {/* Display Answers if available */}
+              {/* Display Answers Summary if available */}
               {reg.answers && Object.keys(reg.answers).length > 0 && (
                 <div className="space-y-3 pt-2 border-t border-white/5">
-                  <h4 className="text-[10px] font-bold text-[#00d4ff] uppercase tracking-widest">
-                    Assessment Responses {reg.status?.toLowerCase() !== 'completed' && "(Draft/In-Progress)"}
-                  </h4>
-                  <div className="space-y-3">
-                    {Object.entries(reg.answers).map(([qId, answer]) => (
-                      <div key={qId} className="p-3 rounded-lg bg-white/5 border border-white/5">
-                        <p className="text-[10px] text-zinc-500 mb-1">Question ID: {qId}</p>
-                        <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{answer || "No response provided."}</p>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-bold text-[#00d4ff] uppercase tracking-widest">
+                      Assessment Snapshots
+                    </h4>
+                    <button 
+                       onClick={() => onViewReport(reg.full_name, reg.domain, reg.answers)}
+                       className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-tighter underline decoration-zinc-800"
+                    >
+                      Open Full Detailed Report
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {Object.entries(reg.answers).slice(0, 4).map(([qId, answer]) => (
+                      <div key={qId} className="p-2 rounded-lg bg-white/5 border border-white/5 truncate max-w-full">
+                        <p className="text-[8px] text-zinc-600 mb-0.5">Q-ID: {qId}</p>
+                        <p className="text-[10px] text-zinc-400 truncate">{answer || "Skipped"}</p>
                       </div>
                     ))}
+                    {Object.keys(reg.answers).length > 4 && (
+                      <div className="p-2 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center italic text-[10px] text-zinc-600">
+                        + {Object.keys(reg.answers).length - 4} more answers
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -325,7 +479,15 @@ function RegistrationCard({
 
 // ─── Session Row ─────────────────────────────────────────────────────────────
 
-function SessionCard({ session, onDelete }: { session: TestSession; onDelete: (id: string, regId: string) => void }) {
+function SessionCard({ 
+  session, 
+  onDelete, 
+  onViewReport 
+}: { 
+  session: TestSession; 
+  onDelete: (id: string, regId: string) => void;
+  onViewReport: (candidateName: string, domain: string, answers: Record<string, string>) => void;
+}) {
   const [isDeleting, setIsDeleting] = useState(false)
   const isExpired = new Date(session.expires_at) < new Date()
   const isCompleted = !!session.completed_at
@@ -370,6 +532,16 @@ function SessionCard({ session, onDelete }: { session: TestSession; onDelete: (i
             )}>
               {isCompleted ? "COMPLETED" : isStarted ? "IN PROGRESS" : isExpired ? "EXPIRED" : "PENDING"}
             </div>
+
+            {isCompleted && (
+              <button
+                onClick={() => onViewReport(session.registrations?.full_name || "Unknown", session.domain, session.registrations?.answers || {})}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-all"
+              >
+                <Brain className="w-3.5 h-3.5 text-[#00d4ff]" />
+                View Report
+              </button>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -449,15 +621,23 @@ function SessionCard({ session, onDelete }: { session: TestSession; onDelete: (i
               {/* Responses Section */}
               {isCompleted && session.registrations?.answers && Object.keys(session.registrations.answers).length > 0 ? (
                 <div className="space-y-3 pt-2 border-t border-white/5">
-                   <div className="flex items-center gap-2 mb-2">
-                     <CheckCircle className="w-3 h-3 text-[#00d4ff]" />
-                     <h4 className="text-[10px] font-bold text-[#00d4ff] uppercase tracking-widest">Candidate Responses</h4>
+                   <div className="flex items-center justify-between mb-2">
+                     <div className="flex items-center gap-2">
+                        <CheckCircle className="w-3 h-3 text-[#00d4ff]" />
+                        <h4 className="text-[10px] font-bold text-[#00d4ff] uppercase tracking-widest">Assessment Detail</h4>
+                     </div>
+                     <button 
+                       onClick={() => onViewReport(session.registrations?.full_name || "Unknown", session.domain, session.registrations?.answers || {})}
+                       className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-tighter"
+                     >
+                       Full Detailed View
+                     </button>
                    </div>
-                   <div className="space-y-3">
-                    {Object.entries(session.registrations.answers).map(([qId, answer]) => (
-                      <div key={qId} className="p-3 rounded-lg bg-black/20 border border-white/5">
-                        <p className="text-[9px] text-zinc-600 mb-1 font-mono uppercase">Question {qId}</p>
-                        <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap">{answer || "No response provided."}</p>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {Object.entries(session.registrations.answers).slice(0, 4).map(([qId, answer]) => (
+                      <div key={qId} className="p-2 rounded-lg bg-black/20 border border-white/5 truncate">
+                        <p className="text-[8px] text-zinc-600 mb-0.5">QUESTION {qId}</p>
+                        <p className="text-[10px] text-zinc-400 truncate">{answer || "Skipped"}</p>
                       </div>
                     ))}
                   </div>
@@ -482,6 +662,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [domainFilter, setDomainFilter] = useState("all")
+  const [selectedReport, setSelectedReport] = useState<{
+    candidateName: string;
+    domain: string;
+    answers: Record<string, string>;
+  } | null>(null)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -634,6 +819,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   reg={reg} 
                   onGenerateLink={handleGenerateLink} 
                   onDelete={handleDeleteRegistration} 
+                  onViewReport={(name, dom, ans) => setSelectedReport({ candidateName: name, domain: dom, answers: ans })}
                 />
               ))
             ) : (
@@ -642,7 +828,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           ) : (
             sessions.length > 0 ? (
               sessions.map(session => (
-                <SessionCard key={session.id} session={session} onDelete={handleDeleteSession} />
+                <SessionCard 
+                  key={session.id} 
+                  session={session} 
+                  onDelete={handleDeleteSession} 
+                  onViewReport={(name, dom, ans) => setSelectedReport({ candidateName: name, domain: dom, answers: ans })}
+                />
               ))
             ) : (
               <p className="text-center py-20 text-zinc-600 italic">No active test sessions.</p>
@@ -650,6 +841,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {selectedReport && (
+          <AssessmentReportOverlay 
+            {...selectedReport} 
+            onClose={() => setSelectedReport(null)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
