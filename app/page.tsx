@@ -82,14 +82,6 @@ export default function Home() {
           <p className="text-muted-foreground font-mono text-xs">
             &copy; {new Date().getFullYear()} YENTECH. Built with passion by the WebDev Team.
           </p>
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-1.5 text-xs font-mono transition-colors hover:opacity-80"
-            style={{ color: "#3f3f46" }}
-          >
-            <Lock className="w-3 h-3" />
-            admin panel
-          </Link>
         </footer>
       </div>
     </main>
