@@ -1,19 +1,28 @@
 import nodemailer from 'nodemailer';
 
 /**
- * Configure the email transporter using environment variables.
- * For Gmail, use an "App Password". 
- * For other services, use their specific SMTP settings.
+ * Configure the email transporter.
+ * We create it lazily to ensure environment variables are loaded.
  */
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+function getTransporter() {
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!user || !pass) {
+    throw new Error('SMTP_USER or SMTP_PASS is not defined in environment variables');
+  }
+
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
+    auth: {
+      user: user,
+      pass: pass,
+    },
+  });
+}
+
 
 interface EmailOptions {
   to: string;
@@ -26,6 +35,7 @@ interface EmailOptions {
  */
 export async function sendEmail({ to, subject, html }: EmailOptions) {
   try {
+    const transporter = getTransporter();
     const info = await transporter.sendMail({
       from: `"Yentech Recruitment" <${process.env.SMTP_USER}>`,
       to,
@@ -47,7 +57,8 @@ export function getInviteEmailTemplate(name: string, domain: string, testLink: s
   return `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
       <div style="background-color: #050508; padding: 24px; text-align: center; border-bottom: 2px solid #00d4ff;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">YENTECH RECRUITMENT</h1>
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">YENTECH RECRUITMENT PORTAL</h1>
+        <p style="color: #00d4ff; font-size: 10px; margin: 4px 0 0 0;">NEW VERSION 1.1</p>
       </div>
       <div style="padding: 32px; background-color: #ffffff;">
         <h2 style="color: #111827; margin-bottom: 16px;">Hello ${name},</h2>

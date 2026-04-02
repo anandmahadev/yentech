@@ -227,7 +227,7 @@ export async function sendInviteEmailAction(registrationId: string) {
   
   const emailRes = await sendEmail({
     to: reg.email,
-    subject: `Assessment Invite: ${reg.domain} Role | Yentech`,
+    subject: `(New v1.1) Assessment Invite: ${reg.domain} Role | Yentech`,
     html,
   })
 
