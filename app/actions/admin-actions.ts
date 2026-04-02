@@ -199,10 +199,7 @@ export async function sendInviteEmailAction(registrationId: string) {
     return { success: false, error: "Registration not found" }
   }
 
-  // 2. Safety filter for Test User
-  if (reg.full_name !== "Test User" || reg.email !== "triallogin18@gmail.com") {
-    return { success: false, error: "Safety: Individual email limited to Test User during development." }
-  }
+  // Removed safety filter for Test User to enable production candidate invites
 
   // 3. Get or generate test link
   let linkId = ""
@@ -256,9 +253,9 @@ export async function bulkSendExamLinksAction() {
 
   if (error) return { success: false, error: error.message }
 
-  // 2. Filter for Test User only for now
+  // 2. Filter for candidates who are in 'registered' status (not yet invited or completed)
   const targets = (registrations || []).filter(
-    r => r.full_name === "Test User" && r.email === "triallogin18@gmail.com"
+    r => r.status === 'registered'
   )
 
   if (targets.length === 0) {
