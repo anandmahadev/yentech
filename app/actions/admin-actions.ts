@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { getSession } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
+import { sendEmail, getInviteEmailTemplate } from "@/lib/email"
 
 /**
  * Generates a random alphanumeric string for the link ID
@@ -30,9 +31,9 @@ export async function generateTestLinkAction(registrationId: string, domain: str
   // 1. Generate unique link ID
   const link_id = generateLinkId(20)
   
-  // 2. Set expiry (7 days from now)
+  // 2. Set expiry (1 hour from now)
   const expires_at = new Date()
-  expires_at.setDate(expires_at.getDate() + 7)
+  expires_at.setHours(expires_at.getHours() + 1)
 
   // 3. Insert into test_sessions
   const { error: sessionError } = await supabase
@@ -174,4 +175,102 @@ export async function deleteRegistrationAction(registrationId: string) {
   console.log(`[DELETE] Successfully deleted registration: ${registrationId}`)
   revalidatePath("/admin")
   return { success: true }
+}
+
+/**
+ * Sends an individual invite email to a candidate
+ */
+export async function sendInviteEmailAction(registrationId: string) {
+  const session = await getSession()
+  if (!session || !session.admin) {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  const supabase = await createClient()
+
+  // 1. Fetch registration details
+  const { data: reg, error: regError } = await supabase
+    .from("registrations")
+    .select("*")
+    .eq("id", registrationId)
+    .single()
+
+  if (regError || !reg) {
+    return { success: false, error: "Registration not found" }
+  }
+
+  // 2. Safety filter for Test User
+  if (reg.full_name !== "Test User" || reg.email !== "triallogin18@gmail.com") {
+    return { success: false, error: "Safety: Individual email limited to Test User during development." }
+  }
+
+  // 3. Get or generate test link
+  let linkId = ""
+  const { data: testSession } = await supabase
+    .from("test_sessions")
+    .select("link_id")
+    .eq("registration_id", registrationId)
+    .maybeSingle()
+
+  if (testSession) {
+    linkId = testSession.link_id
+  } else {
+    const res = await generateTestLinkAction(registrationId, reg.domain)
+    if (!res.success) return res
+    linkId = res.linkId!
+  }
+
+  // 4. Send email
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const testLink = `${baseUrl}/test/${linkId}`
+  const html = getInviteEmailTemplate(reg.full_name, reg.domain, testLink)
+  
+  const emailRes = await sendEmail({
+    to: reg.email,
+    subject: `Assessment Invite: ${reg.domain} Role | Yentech`,
+    html,
+  })
+
+  if (!emailRes.success) {
+    return { success: false, error: `Email failed: ${emailRes.error}` }
+  }
+
+  return { success: true }
+}
+
+/**
+ * Bulk sends invite emails to all candidates (filtered for Test User currently)
+ */
+export async function bulkSendExamLinksAction() {
+  const session = await getSession()
+  if (!session || !session.admin) {
+    return { success: false, error: "Unauthorized" }
+  }
+
+  const supabase = await createClient()
+
+  // 1. Fetch all registrations
+  const { data: registrations, error } = await supabase
+    .from("registrations")
+    .select("*")
+
+  if (error) return { success: false, error: error.message }
+
+  // 2. Filter for Test User only for now
+  const targets = (registrations || []).filter(
+    r => r.full_name === "Test User" && r.email === "triallogin18@gmail.com"
+  )
+
+  if (targets.length === 0) {
+    return { success: false, error: "No matching Test User found (Test User / triallogin18@gmail.com)" }
+  }
+
+  let count = 0
+  for (const reg of targets) {
+    const res = await sendInviteEmailAction(reg.id)
+    if (res.success) count++
+  }
+
+  revalidatePath("/admin")
+  return { success: true, summary: `Successfully shared links with ${count} candidate(s).` }
 }

@@ -26,10 +26,18 @@ import {
   Clock,
   ExternalLink,
   Trash2,
+  Mail,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { adminLoginAction, adminLogoutAction, getAdminSessionAction, getRegistrationsAction } from "@/app/actions/auth-actions"
-import { generateTestLinkAction, getTestSessionsAction, deleteTestSessionAction, deleteRegistrationAction } from "@/app/actions/admin-actions"
+import { 
+  generateTestLinkAction, 
+  getTestSessionsAction, 
+  deleteTestSessionAction, 
+  deleteRegistrationAction,
+  sendInviteEmailAction,
+  bulkSendExamLinksAction 
+} from "@/app/actions/admin-actions"
 import { toast } from "sonner"
 import { SITUATIONAL_QUESTIONS, DOMAIN_SPECIFIC_QUESTIONS, DOMAIN_CONFIG } from "@/lib/constants"
 import { useMemo } from "react"
@@ -294,16 +302,19 @@ function AssessmentReportOverlay({
 function RegistrationCard({ 
   reg, 
   onGenerateLink, 
-  onDelete,
+  onSendEmail,
+  onDelete, 
   onViewReport
 }: { 
   reg: Registration; 
   onGenerateLink: (id: string, domain: string) => void;
+  onSendEmail: (id: string) => Promise<void>;
   onDelete: (id: string) => void;
   onViewReport: (candidateName: string, domain: string, answers: Record<string, string>) => void;
 }) {
   const [expanded, setExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const domain = DOMAIN_CONFIG[reg.domain] ?? { label: reg.domain, icon: Code, color: "#00d4ff" }
   const DomainIcon = domain.icon
@@ -312,6 +323,12 @@ function RegistrationCard({
     setIsGenerating(true)
     await onGenerateLink(reg.id, reg.domain)
     setIsGenerating(false)
+  }
+
+  const handleSendEmail = async () => {
+    setIsSendingEmail(true)
+    await onSendEmail(reg.id)
+    setIsSendingEmail(false)
   }
 
   const handleDelete = async () => {
@@ -364,24 +381,42 @@ function RegistrationCard({
               <CheckCircle className="w-3.5 h-3.5" />
               Test Completed
             </div>
-          ) : (!reg.status || reg.status.toLowerCase() === 'registered') ? (
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00d4ff] text-[#050508] text-xs font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-            >
-              {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <LinkIcon className="w-3 h-3" />}
-              Generate Link
-            </button>
-          ) : reg.status?.toLowerCase() === 'started' ? (
-            <div className="flex items-center gap-1 text-xs text-yellow-500 italic">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Test in Progress
-            </div>
           ) : (
-            <div className="flex items-center gap-1.5 text-xs text-green-500 font-bold border border-green-500/20 bg-green-500/5 px-2 py-1 rounded-md">
-              <CheckCircle className="w-3.5 h-3.5" />
-              Link Generated
+            <div className="flex items-center gap-2">
+              {(!reg.status || reg.status.toLowerCase() === 'registered') ? (
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00d4ff] text-[#050508] text-xs font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                  title="Generate Unique Link"
+                >
+                  {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <LinkIcon className="w-3 h-3" />}
+                  Generate Link
+                </button>
+              ) : reg.status?.toLowerCase() === 'started' ? (
+                <div className="flex items-center gap-1 text-xs text-yellow-500 italic">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Test in Progress
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-green-500 font-bold border border-green-500/20 bg-green-500/5 px-2 py-1 rounded-md">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Link Generated
+                </div>
+              )}
+
+              {/* Show Send Email button for all candidates except those currently in the middle of a test */}
+              {reg.status?.toLowerCase() !== 'started' && (
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-500 text-xs font-bold hover:bg-green-500/20 transition-all disabled:opacity-50"
+                  title="Send Invite Email"
+                >
+                  {isSendingEmail ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+                  Send Email
+                </button>
+              )}
             </div>
           )}
 
@@ -652,6 +687,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [registrations, setRegistrations] = useState<Registration[]>([])
   const [sessions, setSessions] = useState<TestSession[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isBulkSending, setIsBulkSending] = useState(false)
   const [search, setSearch] = useState("")
   const [domainFilter, setDomainFilter] = useState("all")
   const [selectedReport, setSelectedReport] = useState<{
@@ -688,7 +724,30 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       toast.success("Link generated successfully!")
       fetchData()
     } else {
-      toast.error(res.error || "Generation failed")
+      toast.error((res as any).error || "Generation failed")
+    }
+  }
+
+  const handleSendIndividualEmail = async (regId: string) => {
+    const res = await sendInviteEmailAction(regId)
+    if (res.success) {
+      toast.success("Email sent successfully!")
+      fetchData()
+    } else {
+      toast.error((res as any).error || "Failed to send email")
+    }
+  }
+
+  const handleBulkSend = async () => {
+    if (!confirm("Are you sure you want to send invite emails to all (currently filtered) candidates?")) return
+    setIsBulkSending(true)
+    const res = await bulkSendExamLinksAction()
+    setIsBulkSending(false)
+    if (res.success) {
+      toast.success((res as { summary: string }).summary)
+      fetchData()
+    } else {
+      toast.error((res as { error: string }).error || "Bulk action failed")
     }
   }
 
@@ -768,6 +827,20 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           >
             Test Sessions ({sessions.length})
           </button>
+
+          {tab === "registrations" && (
+            <>
+              <div className="h-4 w-px bg-white/10 mx-2" />
+              <button
+                onClick={handleBulkSend}
+                disabled={isBulkSending || isLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/10 text-green-500 text-xs font-bold border border-green-500/20 hover:bg-green-500/20 transition-all disabled:opacity-50"
+              >
+                {isBulkSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                Send All Exam Links
+              </button>
+            </>
+          )}
         </div>
 
         {/* Filters */}
@@ -810,6 +883,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                   key={reg.id} 
                   reg={reg} 
                   onGenerateLink={handleGenerateLink} 
+                  onSendEmail={handleSendIndividualEmail}
                   onDelete={handleDeleteRegistration} 
                   onViewReport={(name, dom, ans) => setSelectedReport({ candidateName: name, domain: dom, answers: ans })}
                 />
